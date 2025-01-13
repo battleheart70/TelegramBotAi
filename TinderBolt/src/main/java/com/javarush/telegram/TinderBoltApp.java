@@ -18,6 +18,8 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
     public static final String TELEGRAM_BOT_NAME;
     public static final String TELEGRAM_BOT_TOKEN;
     public static final String OPEN_AI_TOKEN;
+    private ChatGPTService chatGPT = new ChatGPTService(OPEN_AI_TOKEN);
+    private DialogMode currentDialogMode = null;
 
     static {
         Properties properties = new Properties();
@@ -42,9 +44,33 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
     public void onUpdateEventReceived(Update update) {
         //TODO: основной функционал бота будем писать здесь
         String message = getMessageText();
+
         if (message.equals("/start")) {
+            currentDialogMode = DialogMode.MAIN;
             sendPhotoMessage("main");
             sendTextMessage(loadMessage("main"));
+            showMainMenu(
+                    "Главное меню бота", "/start",
+                    "Генерация Tinder-профиля", "/profile",
+                    "Сообщение для знакомства", "/opener",
+                    "Переписка от вашего имени", "/message",
+                    "Переписка со звездами", "/date",
+                    "Общение с чатом GPT", "/gpt");
+            return;
+        }
+
+        if (message.equals("/gpt")){
+            currentDialogMode = DialogMode.GPT;
+            sendPhotoMessage("gpt");
+            String text = loadMessage("gpt");
+            sendTextMessage(text);
+            return;
+        }
+
+        if (currentDialogMode == DialogMode.GPT){
+            String prompt = loadPrompt("gpt");
+            String answer = chatGPT.sendMessage(prompt, message);
+            sendTextMessage(answer);
             return;
         }
 
@@ -52,9 +78,8 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
         sendTextMessage("_Привет, ты мой бот!_");
 
         sendTextMessage("Ты написал: " + message);
-
-        sendTextButtonsMessage("Выбери режим работы", "Start", "Start",
-                "Stop", "Stop");
+        sendTextButtonsMessage("Выбери режим работы", "Start", "/start",
+                "chatGPT", "/gpt");
 
 
     }
