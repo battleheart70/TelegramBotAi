@@ -12,6 +12,7 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Properties;
 
 public class TinderBoltApp extends MultiSessionTelegramBot {
@@ -20,6 +21,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
     public static final String OPEN_AI_TOKEN;
     private ChatGPTService chatGPT = new ChatGPTService(OPEN_AI_TOKEN);
     private DialogMode currentDialogMode = null;
+    private ArrayList<String> list = new ArrayList<>();
 
     static {
         Properties properties = new Properties();
@@ -58,21 +60,64 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
                     "Общение с чатом GPT", "/gpt");
             return;
         }
-
         if (message.equals("/gpt")){
             currentDialogMode = DialogMode.GPT;
             sendPhotoMessage("gpt");
-            String text = loadMessage("gpt");
-            sendTextMessage(text);
+            sendTextMessage(loadMessage("gpt"));
+            return;
+        }
+        if (message.equals("/date")){
+            currentDialogMode = DialogMode.DATE;
+            sendPhotoMessage("date");
+            sendTextButtonsMessage(loadMessage("date"),
+                    "Арианна Гранде", "date_grande",
+                    "Зендайя", "date_zendaya",
+                    "Марго Робби", "date_robbie",
+                    "Райан Гослинг", "date_gosling",
+                    "Том Харди", "date_hardy");
+            return;
+        }
+        if(message.equals("/message")){
+            currentDialogMode = DialogMode.MESSAGE;
+            sendPhotoMessage("message");
+            sendTextButtonsMessage(loadMessage("message"), "Следующее сообщение","message_next",
+                    "Пригласить на свидание", "message_date");
             return;
         }
 
+
         if (currentDialogMode == DialogMode.GPT){
-            String prompt = loadPrompt("gpt");
-            String answer = chatGPT.sendMessage(prompt, message);
-            sendTextMessage(answer);
+            Message msg = sendTextMessage("Подождите ChatGPT генерирует ответ...");
+            String answer = chatGPT.sendMessage(loadPrompt("gpt"), message);
+            updateTextMessage(msg, answer);
             return;
         }
+        if (currentDialogMode == DialogMode.DATE){
+            String query = getCallbackQueryButtonKey();
+            if (query.startsWith("date_")){
+                sendPhotoMessage(query);
+                sendTextMessage("Отличный выбор! Можешь начинать переписку с выбранной звездой:");
+                chatGPT.setPrompt(loadPrompt(query));
+                return;
+            }
+            Message msg = sendTextMessage("Подождите ваш потенциальный партнер набирает текст...");
+            String answer = chatGPT.addMessage(message);
+            updateTextMessage(msg, answer);
+            return;
+        }
+        if (currentDialogMode == DialogMode.MESSAGE){
+            String query = getCallbackQueryButtonKey();
+            if (query.startsWith("message_")){
+                String userChatHistory = String.join("\n\n", list);
+                Message msg = sendTextMessage("Подождите ChatGPT генерирует ответ...");
+                String answer = chatGPT.sendMessage(loadPrompt(query), userChatHistory);
+                updateTextMessage(msg, answer);
+                return;
+            }
+            list.add(message);
+            return;
+        }
+
 
         sendTextMessage("*Привет, ты мой бот!*");
         sendTextMessage("_Привет, ты мой бот!_");
